@@ -30,8 +30,8 @@ impl StringSubCommand<'_> for Escape {
 
     fn handle(
         &mut self,
-        _parser: &mut parser_t,
-        streams: &mut io_streams_t,
+        _parser: &Parser,
+        streams: &mut IoStreams,
         optind: &mut usize,
         args: &[&wstr],
     ) -> Option<libc::c_int> {
@@ -52,7 +52,7 @@ impl StringSubCommand<'_> for Escape {
                 escaped.push('\n');
             }
 
-            streams.out.append(escaped);
+            streams.out.append(&escaped);
             escaped_any = true;
         }
 

@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::ops::Deref;
 
 use super::*;
@@ -146,7 +145,7 @@ impl<'args> StringSubCommand<'args> for Split<'args> {
         &mut self,
         optind: &mut usize,
         args: &[&'args wstr],
-        streams: &mut io_streams_t,
+        streams: &mut IoStreams,
     ) -> Option<libc::c_int> {
         if self.is_split0 {
             return STATUS_CMD_OK;
@@ -162,13 +161,13 @@ impl<'args> StringSubCommand<'args> for Split<'args> {
 
     fn handle(
         &mut self,
-        _parser: &mut parser_t,
-        streams: &mut io_streams_t,
+        _parser: &Parser,
+        streams: &mut IoStreams,
         optind: &mut usize,
         args: &[&'args wstr],
     ) -> Option<libc::c_int> {
         if self.fields.is_empty() && self.allow_empty {
-            streams.err.append(wgettext_fmt!(
+            streams.err.append(&wgettext_fmt!(
                 BUILTIN_ERR_COMBO2,
                 args[0],
                 wgettext!("--allow-empty is only valid with --fields")
@@ -259,18 +258,16 @@ impl<'args> StringSubCommand<'args> for Split<'args> {
                 }
                 for field in self.fields.iter() {
                     if let Some(val) = splits.get(*field) {
-                        streams.out.append_with_separation(
-                            val,
-                            separation_type_t::explicitly,
-                            true,
-                        );
+                        streams
+                            .out
+                            .append_with_separation(val, SeparationType::explicitly, true);
                     }
                 }
             } else {
-                for split in &splits {
+                for split in splits {
                     streams
                         .out
-                        .append_with_separation(split, separation_type_t::explicitly, true);
+                        .append_with_separation(&split, SeparationType::explicitly, true);
                 }
             }
         }

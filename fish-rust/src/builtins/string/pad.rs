@@ -65,8 +65,8 @@ impl StringSubCommand<'_> for Pad {
 
     fn handle<'args>(
         &mut self,
-        _parser: &mut parser_t,
-        streams: &mut io_streams_t,
+        _parser: &Parser,
+        streams: &mut IoStreams,
         optind: &mut usize,
         args: &[&'args wstr],
     ) -> Option<libc::c_int> {
@@ -105,7 +105,7 @@ impl StringSubCommand<'_> for Pad {
                 padded.push('\n');
             }
 
-            streams.out.append(padded);
+            streams.out.append(&padded);
         }
 
         STATUS_CMD_OK

@@ -56,7 +56,7 @@ fn print_modifiers(
 
 #[allow(clippy::too_many_arguments)]
 fn print_colors(
-    streams: &mut io_streams_t,
+    streams: &mut IoStreams,
     args: &[&wstr],
     bold: bool,
     underline: bool,
@@ -100,11 +100,11 @@ fn print_colors(
     } // conveniently, 'normal' is always the last color so we don't need to reset here
 
     let contents = outp.contents();
-    streams.out.append(str2wcstring(contents));
+    streams.out.append(&str2wcstring(contents));
 }
 
-const short_options: &wstr = L!(":b:hoidrcu");
-const long_options: &[woption] = &[
+const SHORT_OPTIONS: &wstr = L!(":b:hoidrcu");
+const LONG_OPTIONS: &[woption] = &[
     wopt(L!("background"), woption_argument_t::required_argument, 'b'),
     wopt(L!("help"), woption_argument_t::no_argument, 'h'),
     wopt(L!("bold"), woption_argument_t::no_argument, 'o'),
@@ -116,11 +116,7 @@ const long_options: &[woption] = &[
 ];
 
 /// set_color builtin.
-pub fn set_color(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    argv: &mut [&wstr],
-) -> Option<c_int> {
+pub fn set_color(parser: &Parser, streams: &mut IoStreams, argv: &mut [&wstr]) -> Option<c_int> {
     // Variables used for parsing the argument list.
     let argc = argv.len();
 
@@ -138,12 +134,12 @@ pub fn set_color(
     let mut reverse = false;
     let mut print = false;
 
-    let mut w = wgetopter_t::new(short_options, long_options, argv);
+    let mut w = wgetopter_t::new(SHORT_OPTIONS, LONG_OPTIONS, argv);
     while let Some(c) = w.wgetopt_long() {
         match c {
             'b' => {
                 assert!(w.woptarg.is_some(), "Arg should have been set");
-                bgcolor = w.woptarg;
+                bgcolor = w.woptarg.map(|s| s.to_owned());
             }
             'h' => {
                 builtin_print_help(parser, streams, argv[0]);
@@ -176,9 +172,10 @@ pub fn set_color(
     // We want to reclaim argv so grab woptind now.
     let mut woptind = w.woptind;
 
-    let mut bg = RgbColor::from_wstr(bgcolor.unwrap_or(L!(""))).unwrap_or(RgbColor::NONE);
+    let mut bg = RgbColor::from_wstr(bgcolor.as_ref().unwrap_or(&L!("").to_owned()))
+        .unwrap_or(RgbColor::NONE);
     if bgcolor.is_some() && bg.is_none() {
-        streams.err.append(wgettext_fmt!(
+        streams.err.append(&wgettext_fmt!(
             "%ls: Unknown color '%ls'\n",
             argv[0],
             bgcolor.unwrap()
@@ -203,7 +200,7 @@ pub fn set_color(
     while woptind < argc {
         let fg = RgbColor::from_wstr(argv[woptind]).unwrap_or(RgbColor::NONE);
         if fg.is_none() {
-            streams.err.append(wgettext_fmt!(
+            streams.err.append(&wgettext_fmt!(
                 "%ls: Unknown color '%ls'\n",
                 argv[0],
                 argv[woptind]
@@ -250,7 +247,7 @@ pub fn set_color(
 
     // Output the collected string.
     let contents = outp.contents();
-    streams.out.append(str2wcstring(contents));
+    streams.out.append(&str2wcstring(contents));
 
     STATUS_CMD_OK
 }

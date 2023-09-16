@@ -3,6 +3,8 @@
 use errno::errno;
 
 use super::prelude::*;
+use crate::env::Environment;
+use crate::io::IoStreams;
 use crate::{
     path::path_apply_working_directory,
     wutil::{normalize_path, wrealpath},
@@ -22,8 +24,8 @@ const long_options: &[woption] = &[
 
 fn parse_options(
     args: &mut [&wstr],
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
+    parser: &Parser,
+    streams: &mut IoStreams,
 ) -> Result<(Options, usize), Option<c_int>> {
     let cmd = args[0];
 
@@ -53,11 +55,7 @@ fn parse_options(
 /// An implementation of the external realpath command. Doesn't support any options.
 /// In general scripts shouldn't invoke this directly. They should just use `realpath` which
 /// will fallback to this builtin if an external command cannot be found.
-pub fn realpath(
-    parser: &mut parser_t,
-    streams: &mut io_streams_t,
-    args: &mut [&wstr],
-) -> Option<c_int> {
+pub fn realpath(parser: &Parser, streams: &mut IoStreams, args: &mut [&wstr]) -> Option<c_int> {
     let cmd = args[0];
     let (opts, optind) = match parse_options(args, parser, streams) {
         Ok((opts, optind)) => (opts, optind),
@@ -72,7 +70,7 @@ pub fn realpath(
 
     // TODO: allow arbitrary args. `realpath *` should print many paths
     if optind + 1 != args.len() {
-        streams.err.append(wgettext_fmt!(
+        streams.err.append(&wgettext_fmt!(
             BUILTIN_ERR_ARG_COUNT1,
             cmd,
             0,
@@ -86,13 +84,13 @@ pub fn realpath(
 
     if !opts.no_symlinks {
         if let Some(real_path) = wrealpath(arg) {
-            streams.out.append(real_path);
+            streams.out.append(&real_path);
         } else {
             let errno = errno();
             if errno.0 != 0 {
                 // realpath() just couldn't do it. Report the error and make it clear
                 // this is an error from our builtin, not the system's realpath.
-                streams.err.append(wgettext_fmt!(
+                streams.err.append(&wgettext_fmt!(
                     "builtin %ls: %ls: %s\n",
                     cmd,
                     arg,
@@ -102,14 +100,14 @@ pub fn realpath(
                 // Who knows. Probably a bug in our wrealpath() implementation.
                 streams
                     .err
-                    .append(wgettext_fmt!("builtin %ls: Invalid arg: %ls\n", cmd, arg));
+                    .append(&wgettext_fmt!("builtin %ls: Invalid arg: %ls\n", cmd, arg));
             }
 
             return STATUS_CMD_ERROR;
         }
     } else {
         // We need to get the *physical* pwd here.
-        let realpwd = wrealpath(parser.vars1().get_pwd_slash().as_wstr());
+        let realpwd = wrealpath(&parser.vars().get_pwd_slash());
 
         if let Some(realpwd) = realpwd {
             let absolute_arg = if arg.starts_with(L!("/")) {
@@ -117,9 +115,9 @@ pub fn realpath(
             } else {
                 path_apply_working_directory(arg, &realpwd)
             };
-            streams.out.append(normalize_path(&absolute_arg, false));
+            streams.out.append(&normalize_path(&absolute_arg, false));
         } else {
-            streams.err.append(wgettext_fmt!(
+            streams.err.append(&wgettext_fmt!(
                 "builtin %ls: realpath failed: %s\n",
                 cmd,
                 errno().to_string()

@@ -1,6 +1,7 @@
 use crate::parse_util::parse_util_unescape_wildcards;
 use crate::wchar::prelude::*;
 use crate::wildcard::wildcard_match;
+use crate::wutil::write_to_fd;
 use libc::c_int;
 use std::io::Write;
 use std::os::unix::prelude::*;
@@ -134,6 +135,8 @@ pub mod categories {
         (path, "path"L, "Searching/using paths"L);
 
         (screen, "screen"L, "Screen repaints"L);
+
+        (refcell, "refcell"L, "Refcell dynamic borrowing"L);
     );
 }
 
@@ -165,10 +168,7 @@ pub fn flog_impl(s: &str) {
     if fd < 0 {
         return;
     }
-    let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
-    let _ = file.write(s.as_bytes());
-    // Ensure the file is not closed.
-    file.into_raw_fd();
+    let _ = write_to_fd(s.as_bytes(), fd);
 }
 
 macro_rules! FLOG {
@@ -191,9 +191,21 @@ macro_rules! FLOG {
 }
 
 macro_rules! FLOGF {
-    ($category:ident, $fmt: expr, $($elem:expr),+ $(,)*) => {
-        crate::flog::FLOG!($category, sprintf!($fmt, $($elem),*));
+    ($category:ident, $fmt:expr $(, $elem:expr)* $(,)*) => {
+        crate::flog::FLOG!($category, crate::wutil::sprintf!($fmt, $($elem),*))
     }
+}
+
+macro_rules! FLOGF_SAFE {
+    ($category:ident, $fmt:expr $(, $elem:expr)* $(,)*) => {
+        if crate::flog::categories::$category
+            .enabled
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
+            crate::flog::FLOG!(error, $fmt);
+            crate::flog::flog_impl("FLOGF_SAFE not yet implemented\n");
+        }
+    };
 }
 
 macro_rules! should_flog {
@@ -204,7 +216,7 @@ macro_rules! should_flog {
     };
 }
 
-pub(crate) use {should_flog, FLOG, FLOGF};
+pub(crate) use {should_flog, FLOG, FLOGF, FLOGF_SAFE};
 
 /// For each category, if its name matches the wildcard, set its enabled to the given sense.
 fn apply_one_wildcard(wc_esc: &wstr, sense: bool) {

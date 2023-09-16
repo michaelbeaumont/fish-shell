@@ -32,15 +32,15 @@ impl StringSubCommand<'_> for Unescape {
 
     fn handle(
         &mut self,
-        _parser: &mut parser_t,
-        streams: &mut io_streams_t,
+        _parser: &Parser,
+        streams: &mut IoStreams,
         optind: &mut usize,
         args: &[&wstr],
     ) -> Option<libc::c_int> {
         let mut nesc = 0;
         for (arg, want_newline) in arguments(args, optind, streams) {
             if let Some(res) = unescape_string(&arg, self.style) {
-                streams.out.append(res);
+                streams.out.append(&res);
                 if want_newline {
                     streams.out.append1('\n');
                 }

@@ -49,14 +49,14 @@ impl StringSubCommand<'_> for Sub {
 
     fn handle(
         &mut self,
-        _parser: &mut parser_t,
-        streams: &mut io_streams_t,
+        _parser: &Parser,
+        streams: &mut IoStreams,
         optind: &mut usize,
         args: &[&wstr],
     ) -> Option<libc::c_int> {
         let cmd = args[0];
         if self.length.is_some() && self.end.is_some() {
-            streams.err.append(wgettext_fmt!(
+            streams.err.append(&wgettext_fmt!(
                 BUILTIN_ERR_COMBO2,
                 cmd,
                 wgettext!("--end and --length are mutually exclusive")
