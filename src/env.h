@@ -119,16 +119,95 @@ void env_init(const struct config_paths_t *paths = nullptr, bool do_uvars = true
 /// env_var_t is an immutable value-type data structure representing the value of an environment
 /// variable. This wraps the EnvVar type from Rust.
 using env_var_t = EnvVar;
+// class env_var_t {
+//    public:
+//     using env_var_flags_t = uint8_t;
+//     enum {
+//         flag_export = 1 << 0,     // whether the variable is exported
+//         flag_read_only = 1 << 1,  // whether the variable is read only
+//         flag_pathvar = 1 << 2,    // whether the variable is a path variable
+//     };
+//     env_var_t() : env_var_t(wcstring_list_ffi_t{}, 0) {}
+//     env_var_t(const wcstring_list_ffi_t &vals, uint8_t flags);
+//     env_var_t(const env_var_t &);
+//     env_var_t(env_var_t &&) = default;
 
-using env_var_flags_t = uint8_t;
-enum {
-    env_var_flag_export = 1 << 0,     // whether the variable is exported
-    env_var_flag_read_only = 1 << 1,  // whether the variable is read only
-    env_var_flag_pathvar = 1 << 2,    // whether the variable is a path variable
-};
+//     env_var_t(wcstring val, env_var_flags_t flags)
+//         : env_var_t{std::vector<wcstring>{std::move(val)}, flags} {}
+
+//     // Construct from FFI. This transfers ownership of the EnvVar, which should originate
+//     // in Box::into_raw().
+//     static env_var_t new_ffi(EnvVar *ptr);
+
+//     // Get the underlying EnvVar pointer.
+//     // Note you may need to mem::transmute this, since autocxx gets confused when going from Rust
+//     ->
+//     // C++ -> Rust.
+//     const EnvVar *ffi_ptr() const { return &*this->impl_; }
+
+//     bool empty() const;
+//     bool exports() const;
+//     bool is_read_only() const;
+//     bool is_pathvar() const;
+//     env_var_flags_t get_flags() const;
+
+//     wcstring as_string() const;
+//     void to_list(std::vector<wcstring> &out) const;
+//     std::vector<wcstring> as_list() const;
+//     wcstring_list_ffi_t as_list_ffi() const { return as_list(); }
+
+//     /// \return the character used when delimiting quoted expansion.
+//     wchar_t get_delimiter() const;
+
+//     static env_var_flags_t flags_for(const wchar_t *name);
+
+//     env_var_t &operator=(const env_var_t &);
+//     env_var_t &operator=(env_var_t &&) = default;
+
+//     bool operator==(const env_var_t &rhs) const;
+//     bool operator!=(const env_var_t &rhs) const { return !(*this == rhs); }
+
+//    private:
+//     env_var_t(rust::Box<EnvVar> &&impl) : impl_(std::move(impl)) {}
+
+//     rust::Box<EnvVar> impl_;
+// };
+// typedef std::unordered_map<wcstring, env_var_t> var_table_t;
 
 /// An environment is read-only access to variable values.
 using environment_t = EnvStackRef;
+// class environment_t {
+//    protected:
+//     environment_t() = default;
+
+//    public:
+//     virtual maybe_t<env_var_t> get(const wcstring &key,
+//                                    env_mode_flags_t mode = ENV_DEFAULT) const = 0;
+//     virtual std::vector<wcstring> get_names(env_mode_flags_t flags) const = 0;
+//     virtual ~environment_t();
+
+//     maybe_t<env_var_t> get_unless_empty(const wcstring &key,
+//                                         env_mode_flags_t mode = ENV_DEFAULT) const;
+//     /// \return a environment variable as a unique pointer, or nullptr if none.
+//     std::unique_ptr<env_var_t> get_or_null(const wcstring &key,
+//                                            env_mode_flags_t mode = ENV_DEFAULT) const;
+
+//     /// Returns the PWD with a terminating slash.
+//     virtual wcstring get_pwd_slash() const;
+// };
+
+// /// The null environment contains nothing.
+// class null_environment_t : public environment_t {
+//    public:
+//     null_environment_t();
+//     ~null_environment_t();
+
+//     maybe_t<env_var_t> get(const wcstring &key, env_mode_flags_t mode = ENV_DEFAULT) const
+//     override; std::vector<wcstring> get_names(env_mode_flags_t flags) const override;
+
+//    private:
+//     rust::Box<EnvNull> impl_;
+// };
 
 /// A mutable environment which allows scopes to be pushed and popped.
 using env_stack_t = EnvStackRef;
