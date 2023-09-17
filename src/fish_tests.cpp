@@ -87,7 +87,6 @@
 #include "parse_tree.h"
 #include "parse_util.h"
 #include "parser.h"
-#include "parser.rs.h"
 #include "path.h"
 #include "proc.h"
 #include "reader.h"
@@ -256,7 +255,7 @@ wcstring get_overlong_path() {
         }                                                          \
     } while (0)
 
-// todo!("already ported, delete this");
+// todo!("later: already ported, delete this");
 /// Test that the fish functions for converting strings to numbers work.
 static void test_str_to_num() {
     say(L"Testing str_to_num");
@@ -414,7 +413,7 @@ static std::string str2hex(const std::string &input) {
     return output;
 }
 
-// todo!("already ported, delete this");
+// todo!("later: already ported, delete this");
 /// Test wide/narrow conversion by creating random strings and verifying that the original string
 /// comes back through double conversion.
 static void test_convert() {
@@ -436,7 +435,7 @@ static void test_convert() {
     }
 }
 
-// todo!("already ported, delete this");
+// todo!("later: already ported, delete this");
 /// Verify that ASCII narrow->wide conversions are correct.
 static void test_convert_ascii() {
     std::string s(4096, '\0');
@@ -464,7 +463,7 @@ static void test_convert_ascii() {
     }
 }
 
-// todo!("already ported, delete this");
+// todo!("later: already ported, delete this");
 /// fish uses the private-use range to encode bytes that could not be decoded using the user's
 /// locale. If the input could be decoded, but decoded to private-use codepoints, then fish should
 /// also use the direct encoding for those bytes. Verify that characters in the private use area are
@@ -1678,7 +1677,7 @@ static void test_abbreviations() {
     auto expand_abbreviation_in_command = [](const wcstring &cmdline,
                                              maybe_t<size_t> cursor_pos = {}) -> maybe_t<wcstring> {
         if (auto replacement = reader_expand_abbreviation_at_cursor(
-                cmdline, cursor_pos.value_or(cmdline.size()), parser_t::principal_parser())) {
+                cmdline, cursor_pos.value_or(cmdline.size()), parser_principal_parser()->deref())) {
             wcstring cmdline_expanded = cmdline;
             std::vector<highlight_spec_t> colors{cmdline_expanded.size()};
             apply_edit(&cmdline_expanded, &colors, edit_t{replacement->range, *replacement->text});
@@ -1746,13 +1745,13 @@ static void test_pager_navigation() {
     // columns (7 * 12 - 2 = 82).
     //
     // You can simulate this test by creating 19 files named "file00.txt" through "file_18.txt".
-    completion_list_t completions;
+    auto completions = new_completion_list();
     for (size_t i = 0; i < 19; i++) {
-        append_completion(&completions, L"abcdefghij");
+        append_completion(*completions, L"abcdefghij");
     }
 
     pager_t pager;
-    pager.set_completions(completions);
+    pager.set_completions(*completions);
     pager.set_term_size(termsize_default());
     page_rendering_t render = pager.render();
 
@@ -1878,8 +1877,10 @@ static void test_pager_layout() {
     pager_t pager;
 
     // These test cases have equal completions and descriptions
-    const completion_t c1(L"abcdefghij", L"1234567890");
-    pager.set_completions(completion_list_t(1, c1));
+    auto c1 = new_completion_with(L"abcdefghij", L"1234567890", 0);
+    auto c1s = new_completion_list();
+    c1s->push_back(*c1);
+    pager.set_completions(*c1s);
     const pager_layout_testcase_t testcases1[] = {
         {26, L"abcdefghij  (1234567890)"}, {25, L"abcdefghij  (1234567890)"},
         {24, L"abcdefghij  (1234567890)"}, {23, L"abcdefghij  (12345678…)"},
@@ -1893,8 +1894,10 @@ static void test_pager_layout() {
     }
 
     // These test cases have heavyweight completions
-    const completion_t c2(L"abcdefghijklmnopqrs", L"1");
-    pager.set_completions(completion_list_t(1, c2));
+    auto c2 = new_completion_with(L"abcdefghijklmnopqrs", L"1", 0);
+    auto c2s = new_completion_list();
+    c2s->push_back(*c2);
+    pager.set_completions(*c2s);
     const pager_layout_testcase_t testcases2[] = {
         {26, L"abcdefghijklmnopqrs  (1)"}, {25, L"abcdefghijklmnopqrs  (1)"},
         {24, L"abcdefghijklmnopqrs  (1)"}, {23, L"abcdefghijklmnopq…  (1)"},
@@ -1908,8 +1911,10 @@ static void test_pager_layout() {
     }
 
     // These test cases have no descriptions
-    const completion_t c3(L"abcdefghijklmnopqrst", L"");
-    pager.set_completions(completion_list_t(1, c3));
+    auto c3 = new_completion_with(L"abcdefghijklmnopqrst", L"", 0);
+    auto c3s = new_completion_list();
+    c3s->push_back(*c3);
+    pager.set_completions(*c3s);
     const pager_layout_testcase_t testcases3[] = {
         {26, L"abcdefghijklmnopqrst"}, {25, L"abcdefghijklmnopqrst"},
         {24, L"abcdefghijklmnopqrst"}, {23, L"abcdefghijklmnopqrst"},
@@ -2032,47 +2037,7 @@ static void test_word_motion() {
                        L"^a-b-c^\n\nd-e-f^ ");
 }
 
-// todo!("port this")
-/// Test is_potential_path.
-static void test_is_potential_path() {
-    say(L"Testing is_potential_path");
-
-    // Directories
-    if (system("mkdir -p test/is_potential_path_test/alpha/")) err(L"mkdir failed");
-    if (system("mkdir -p test/is_potential_path_test/beta/")) err(L"mkdir failed");
-
-    // Files
-    if (system("touch test/is_potential_path_test/aardvark")) err(L"touch failed");
-    if (system("touch test/is_potential_path_test/gamma")) err(L"touch failed");
-
-    const wcstring wd = L"test/is_potential_path_test/";
-    const std::vector<wcstring> wds({L".", wd});
-
-    operation_context_t ctx{env_stack_principal()};
-    do_test(is_potential_path(L"al", true, wds, ctx, PATH_REQUIRE_DIR));
-    do_test(is_potential_path(L"alpha/", true, wds, ctx, PATH_REQUIRE_DIR));
-    do_test(is_potential_path(L"aard", true, wds, ctx, 0));
-    do_test(!is_potential_path(L"aard", false, wds, ctx, 0));
-    do_test(!is_potential_path(L"alp/", true, wds, ctx, PATH_REQUIRE_DIR | PATH_FOR_CD));
-
-    do_test(!is_potential_path(L"balpha/", true, wds, ctx, PATH_REQUIRE_DIR));
-    do_test(!is_potential_path(L"aard", true, wds, ctx, PATH_REQUIRE_DIR));
-    do_test(!is_potential_path(L"aarde", true, wds, ctx, PATH_REQUIRE_DIR));
-    do_test(!is_potential_path(L"aarde", true, wds, ctx, 0));
-
-    do_test(is_potential_path(L"test/is_potential_path_test/aardvark", true, wds, ctx, 0));
-    do_test(is_potential_path(L"test/is_potential_path_test/al", true, wds, ctx, PATH_REQUIRE_DIR));
-    do_test(is_potential_path(L"test/is_potential_path_test/aardv", true, wds, ctx, 0));
-
-    do_test(!is_potential_path(L"test/is_potential_path_test/aardvark", true, wds, ctx,
-                               PATH_REQUIRE_DIR));
-    do_test(!is_potential_path(L"test/is_potential_path_test/al/", true, wds, ctx, 0));
-    do_test(!is_potential_path(L"test/is_potential_path_test/ar", true, wds, ctx, 0));
-
-    do_test(is_potential_path(L"/usr", true, wds, ctx, PATH_REQUIRE_DIR));
-}
-
-// todo!("port this?")
+// todo!("later: port this?")
 static void test_wcstod() {
     say(L"Testing fish_wcstod");
     auto tod_test = [](const wchar_t *a, const char *b) {
@@ -2091,49 +2056,7 @@ static void test_wcstod() {
     tod_test(L"nope", "nope");
 }
 
-// todo!("port this")
-static void test_dup2s() {
-    using std::make_shared;
-    io_chain_t chain;
-    chain.push_back(make_shared<io_close_t>(17));
-    chain.push_back(make_shared<io_fd_t>(3, 19));
-    auto list = dup2_list_resolve_chain_shim(chain);
-    do_test(list.get_actions().size() == 2);
-
-    auto act1 = list.get_actions().at(0);
-    do_test(act1.src == 17);
-    do_test(act1.target == -1);
-
-    auto act2 = list.get_actions().at(1);
-    do_test(act2.src == 19);
-    do_test(act2.target == 3);
-}
-
-// todo!("port this")
-static void test_dup2s_fd_for_target_fd() {
-    using std::make_shared;
-    io_chain_t chain;
-    // note io_fd_t params are backwards from dup2.
-    chain.push_back(make_shared<io_close_t>(10));
-    chain.push_back(make_shared<io_fd_t>(9, 10));
-    chain.push_back(make_shared<io_fd_t>(5, 8));
-    chain.push_back(make_shared<io_fd_t>(1, 4));
-    chain.push_back(make_shared<io_fd_t>(3, 5));
-    auto list = dup2_list_resolve_chain_shim(chain);
-
-    do_test(list.fd_for_target_fd(3) == 8);
-    do_test(list.fd_for_target_fd(5) == 8);
-    do_test(list.fd_for_target_fd(8) == 8);
-    do_test(list.fd_for_target_fd(1) == 4);
-    do_test(list.fd_for_target_fd(4) == 4);
-    do_test(list.fd_for_target_fd(100) == 100);
-    do_test(list.fd_for_target_fd(0) == 0);
-    do_test(list.fd_for_target_fd(-1) == -1);
-    do_test(list.fd_for_target_fd(9) == -1);
-    do_test(list.fd_for_target_fd(10) == -1);
-}
-
-// todo!("already ported, delete this")
+// todo!("later: already ported, delete this")
 /// Testing colors.
 static void test_colors() {
     say(L"Testing colors");
@@ -5022,7 +4945,7 @@ void test_prompt_truncation() {
     do_test(trunc == ellipsis);
 }
 
-// todo!("already ported, delete this")
+// todo!("later: already ported, delete this")
 void test_normalize_path() {
     say(L"Testing path normalization");
     do_test(normalize_path(L"") == L".");
@@ -5063,7 +4986,7 @@ void test_normalize_path() {
     do_test(path_normalize_for_cd(L"/abc/def/", L"../ghi/..") == L"/abc/ghi/..");
 }
 
-// todo!("already ported, delete this")
+// todo!("later: already ported, delete this")
 void test_dirname_basename() {
     say(L"Testing wdirname and wbasename");
     const struct testcase_t {

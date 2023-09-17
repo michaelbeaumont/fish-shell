@@ -3,6 +3,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ffi::CStr,
     mem,
+    pin::Pin,
     rc::Rc,
     sync::{
         atomic::{self, AtomicUsize},
@@ -2537,7 +2538,6 @@ pub use complete_ffi::CompletionRequestOptions;
 
 #[cxx::bridge]
 mod complete_ffi {
-
     extern "C++" {
         include!("complete.h");
         include!("parser.h");
@@ -2585,6 +2585,8 @@ mod complete_ffi {
             ctx: &OperationContext<'static>,
             needs_load: &mut UniquePtr<wcstring_list_ffi_t>,
         ) -> Box<CompletionListFfi>;
+        #[cxx_name = "append_completion"]
+        fn append_completion_ffi(completions: Pin<&mut CompletionListFfi>, comp: &CxxWString);
     }
 
     pub struct CompletionRequestOptions {
@@ -2660,6 +2662,15 @@ fn new_completion_with(
 fn new_completion_list() -> Box<CompletionListFfi> {
     Box::new(CompletionListFfi(CompletionList::new()))
 }
+fn append_completion_ffi(completions: Pin<&mut CompletionListFfi>, comp: &CxxWString) {
+    completions.get_mut().0.push(Completion::new(
+        comp.from_ffi(),
+        "".into(),
+        StringFuzzyMatch::exact_match(),
+        CompleteFlags::default(),
+    ));
+}
+
 impl Completion {
     fn completion(&self) -> UniquePtr<CxxWString> {
         self.completion.to_ffi()
