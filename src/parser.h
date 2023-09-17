@@ -19,8 +19,10 @@ struct Parser;
 #if INCLUDE_RUST_HEADERS
 #include "parser.rs.h"
 #else
+struct EvalRes;
 #endif
 
 using parser_t = Parser;
+using eval_res_t = EvalRes;
 
 #endif

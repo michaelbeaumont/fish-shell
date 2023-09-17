@@ -24,6 +24,8 @@ enum Vars<'a> {
     Parser(ParserRef),
     // A set of variables.
     Vars(&'a dyn Environment),
+
+    TestOnly(ParserRef, &'a dyn Environment),
 }
 
 /// A operation_context_t is a simple property bag which wraps up data needed for highlighting,
@@ -43,8 +45,6 @@ pub struct OperationContext<'a> {
     pub cancel_checker: CancelChecker,
 }
 
-// todo!("later: add EnvNull type?");
-// static nullenv: Lazy<Arc<EnvNull>> = Lazy::new(|| Arc::new(EnvNull {}));
 static nullenv: Lazy<EnvStackRef> = Lazy::new(|| Arc::pin(EnvStack::new()));
 
 impl<'a> OperationContext<'a> {
@@ -52,6 +52,7 @@ impl<'a> OperationContext<'a> {
         match &self.vars {
             Vars::Parser(parser) => &*parser.variables,
             Vars::Vars(vars) => *vars,
+            Vars::TestOnly(_, vars) => *vars,
         }
     }
 
@@ -75,6 +76,19 @@ impl<'a> OperationContext<'a> {
         OperationContext {
             vars: Vars::Parser(parser),
             expansion_limit,
+            job_group: None,
+            cancel_checker,
+        }
+    }
+
+    pub fn test_only_foreground(
+        parser: ParserRef,
+        vars: &'a dyn Environment,
+        cancel_checker: CancelChecker,
+    ) -> OperationContext<'a> {
+        OperationContext {
+            vars: Vars::TestOnly(parser, vars),
+            expansion_limit: EXPANSION_LIMIT_DEFAULT,
             job_group: None,
             cancel_checker,
         }
@@ -104,18 +118,20 @@ impl<'a> OperationContext<'a> {
     }
 
     pub fn has_parser(&self) -> bool {
-        matches!(self.vars, Vars::Parser(_))
+        matches!(self.vars, Vars::Parser(_) | Vars::TestOnly(_, _))
     }
     pub fn maybe_parser(&self) -> Option<&Parser> {
         match &self.vars {
             Vars::Parser(parser) => Some(parser),
             Vars::Vars(_) => None,
+            Vars::TestOnly(parser, _) => Some(parser),
         }
     }
     pub fn parser(&self) -> &Parser {
         match &self.vars {
             Vars::Parser(parser) => parser,
             Vars::Vars(_) => panic!(),
+            Vars::TestOnly(parser, _) => parser,
         }
     }
     // Invoke the cancel checker. \return if we should cancel.

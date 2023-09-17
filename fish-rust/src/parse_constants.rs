@@ -357,7 +357,7 @@ impl Default for ParseErrorCode {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ParseError {
     /// Text of the error.
     pub text: WString,

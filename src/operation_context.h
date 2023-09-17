@@ -3,10 +3,10 @@
 
 #include <stddef.h>
 
+struct OperationContext;
 #if INCLUDE_RUST_HEADERS
 #include "operation_context.rs.h"
 #else
-struct OperationContext;
 #endif
 
 using operation_context_t = OperationContext;

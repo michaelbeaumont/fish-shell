@@ -96,7 +96,7 @@ pub fn reader_handle_sigint() {
 /// Clear the interrupted flag unconditionally without handling anything. The flag could have been
 /// set e.g. when an interrupt arrived just as we were ending an earlier \c reader_readline
 /// invocation but before the \c is_interactive_read flag was cleared.
-fn reader_reset_interrupted() {
+pub fn reader_reset_interrupted() {
     INTERRUPTED.store(0, Ordering::Relaxed);
 }
 

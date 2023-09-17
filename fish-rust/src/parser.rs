@@ -17,7 +17,7 @@ use crate::expand::{
     expand_string, replace_home_directory_with_tilde, ExpandFlags, ExpandResultCode,
 };
 use crate::fds::{open_cloexec, AutoCloseFd};
-use crate::ffi;
+use crate::ffi::{self, wcstring_list_ffi_t, Repin};
 use crate::flog::{FLOG, FLOGF};
 use crate::function;
 use crate::global_safety::{DebugRef, DebugRefMut};
@@ -49,6 +49,7 @@ use std::cell::{Ref, RefCell, RefMut};
 use std::ffi::{CStr, OsStr};
 use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::prelude::OsStrExt;
+use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 use widestring_suffix::widestrs;
@@ -1407,6 +1408,12 @@ mod parser_ffi {
             mode: u16,
             vals: &wcstring_list_ffi_t,
         ) -> i32;
+        fn parser_expand_argument_list_ffi(
+            arg_list_src: &CxxWString,
+            flags: u16,
+            ctx: &OperationContext<'_>,
+            out: Pin<&mut wcstring_list_ffi_t>,
+        );
     }
     extern "Rust" {
         #[cxx_name = "ParserRef"]
@@ -1517,6 +1524,19 @@ impl Parser {
     }
     fn ffi_set_last_statuses(&self, s: &Statuses) {
         self.set_last_statuses(s.clone())
+    }
+}
+
+fn parser_expand_argument_list_ffi(
+    arg_list_src: &CxxWString,
+    flags: u16,
+    ctx: &OperationContext<'_>,
+    mut out: Pin<&mut wcstring_list_ffi_t>,
+) {
+    let arg_list_src = arg_list_src.as_wstr();
+    let flags = ExpandFlags::from_bits(flags).unwrap();
+    for c in Parser::expand_argument_list(arg_list_src, flags, ctx) {
+        out.as_mut().push(c.completion);
     }
 }
 

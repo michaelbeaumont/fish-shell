@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod common;
+#[cfg(test)]
+mod expand;
 mod fd_monitor;
+#[cfg(test)]
+mod parser;
 #[cfg(test)]
 mod string_escape;
 #[cfg(test)]

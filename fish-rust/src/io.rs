@@ -88,7 +88,7 @@ impl SeparatedBuffer {
     }
 
     /// \return the contents size.
-    pub fn size(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.contents_size
     }
 
@@ -101,7 +101,7 @@ impl SeparatedBuffer {
     /// newline appended.
     pub fn newline_serialized(&self) -> Vec<u8> {
         let mut result = vec![];
-        result.reserve(self.size());
+        result.reserve(self.len());
         for elem in &self.elements {
             result.extend_from_slice(&elem.contents);
             if elem.is_explicitly_separated() {

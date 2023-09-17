@@ -1,10 +1,6 @@
 // Various bug and feature tests. Compiled and run by make test.
 #include "config.h"  // IWYU pragma: keep
 
-// todo!()
-int main() { return 0; }
-#if 0
-
 #include <fcntl.h>
 #include <libgen.h>
 #include <limits.h>
@@ -91,6 +87,7 @@ int main() { return 0; }
 #include "parse_tree.h"
 #include "parse_util.h"
 #include "parser.h"
+#include "parser.rs.h"
 #include "path.h"
 #include "proc.h"
 #include "reader.h"
@@ -259,6 +256,7 @@ wcstring get_overlong_path() {
         }                                                          \
     } while (0)
 
+// todo!("already ported, delete this");
 /// Test that the fish functions for converting strings to numbers work.
 static void test_str_to_num() {
     say(L"Testing str_to_num");
@@ -334,6 +332,7 @@ struct enum_info_t<test_enum> {
     static constexpr auto count = test_enum::COUNT;
 };
 
+// todo!("no need to port, delete this");
 static void test_enum_set() {
     say(L"Testing enum set");
     enum_set_t<test_enum> es;
@@ -360,6 +359,7 @@ static void test_enum_set() {
                 .to_raw() == 3);
 }
 
+// todo!("no need to port, delete this");
 static void test_enum_array() {
     say(L"Testing enum array");
     enum_array_t<std::string, test_enum> es{};
@@ -370,6 +370,7 @@ static void test_enum_array() {
     do_test(es.at(test_enum::gamma) == "def");
 }
 
+// todo!("port this");
 static void test_format() {
     say(L"Testing formatting functions");
     struct {
@@ -413,6 +414,7 @@ static std::string str2hex(const std::string &input) {
     return output;
 }
 
+// todo!("already ported, delete this");
 /// Test wide/narrow conversion by creating random strings and verifying that the original string
 /// comes back through double conversion.
 static void test_convert() {
@@ -434,6 +436,7 @@ static void test_convert() {
     }
 }
 
+// todo!("already ported, delete this");
 /// Verify that ASCII narrow->wide conversions are correct.
 static void test_convert_ascii() {
     std::string s(4096, '\0');
@@ -461,6 +464,7 @@ static void test_convert_ascii() {
     }
 }
 
+// todo!("already ported, delete this");
 /// fish uses the private-use range to encode bytes that could not be decoded using the user's
 /// locale. If the input could be decoded, but decoded to private-use codepoints, then fish should
 /// also use the direct encoding for those bytes. Verify that characters in the private use area are
@@ -489,6 +493,7 @@ static void test_convert_private_use() {
     }
 }
 
+// todo!("port this");
 static void perf_convert_ascii() {
     std::string s(128 * 1024, '\0');
     for (size_t i = 0; i < s.size(); i++) {
@@ -506,6 +511,7 @@ static void perf_convert_ascii() {
     say(L"ASCII string conversion perf: %lu bytes in %llu usec", s.size(), usec);
 }
 
+// todo!("no need to port this, delete?");
 /// Verify correct behavior with embedded nulls.
 static void test_convert_nulls() {
     say(L"Testing convert_nulls");
@@ -533,6 +539,7 @@ static void test_convert_nulls() {
     }
 }
 
+// todo!("later: already ported, delete this");
 static void test_iothread() {
     say(L"Testing iothreads");
     std::atomic<int> shared_int{0};
@@ -556,6 +563,7 @@ static void test_iothread() {
     }
 }
 
+// todo!("later: port this");
 static void test_pthread() {
     say(L"Testing pthreads");
     std::atomic<int> val{3};
@@ -569,6 +577,7 @@ static void test_pthread() {
     do_test(val == 5);
 }
 
+// todo!("later: port this");
 static void test_debounce() {
     say(L"Testing debounce");
     // Run 8 functions using a condition variable.
@@ -623,6 +632,7 @@ static void test_debounce() {
     do_test(total_ran <= 2);
 }
 
+// todo!("later: port this");
 static void test_debounce_timeout() {
     using namespace std::chrono;
     say(L"Testing debounce timeout");
@@ -679,6 +689,7 @@ static parser_test_error_bits_t detect_argument_errors(const wcstring &src) {
 }
 
 /// Test the parser.
+// todo!("later: port this");
 static void test_parser() {
     say(L"Testing parser");
 
@@ -892,70 +903,26 @@ static void test_parser() {
 
     // Ensure that we don't crash on infinite self recursion and mutual recursion. These must use
     // the principal parser because we cannot yet execute jobs on other parsers.
-    auto parser = parser_t::principal_parser().shared();
+    auto parser = parser_principal_parser()->deref().shared();
     say(L"Testing recursion detection");
-    parser->eval(L"function recursive ; recursive ; end ; recursive; ", io_chain_t());
+    parser->deref().eval(L"function recursive ; recursive ; end ; recursive; ", *new_io_chain());
 
-    parser->eval(
+    parser->deref().eval(
         L"function recursive1 ; recursive2 ; end ; "
         L"function recursive2 ; recursive1 ; end ; recursive1; ",
-        io_chain_t());
+        *new_io_chain());
 
     say(L"Testing empty function name");
-    parser->eval(L"function '' ; echo fail; exit 42 ; end ; ''", io_chain_t());
+    parser->deref().eval(L"function '' ; echo fail; exit 42 ; end ; ''", *new_io_chain());
 
     say(L"Testing eval_args");
-    completion_list_t comps = parser_t::expand_argument_list(L"alpha 'beta gamma' delta",
-                                                             expand_flags_t{}, parser->context());
+    wcstring_list_ffi_t comps;
+    parser_expand_argument_list_ffi(L"alpha 'beta gamma' delta", expand_flags_t{},
+                                    *parser_context(parser->deref()), comps);
     do_test(comps.size() == 3);
-    do_test(comps.at(0).completion == L"alpha");
-    do_test(comps.at(1).completion == L"beta gamma");
-    do_test(comps.at(2).completion == L"delta");
-}
-
-static void test_1_cancellation(const wchar_t *src) {
-    auto filler = io_bufferfill_t::create();
-    pthread_t thread = pthread_self();
-    double delay = 0.50 /* seconds */;
-    iothread_perform([=]() {
-        /// Wait a while and then SIGINT the main thread.
-        usleep(delay * 1E6);
-        pthread_kill(thread, SIGINT);
-    });
-    eval_res_t res = parser_t::principal_parser().eval(src, io_chain_t{filler});
-    separated_buffer_t buffer = io_bufferfill_t::finish(std::move(filler));
-    if (buffer.size() != 0) {
-        err(L"Expected 0 bytes in out_buff, but instead found %lu bytes, for command %ls\n",
-            buffer.size(), src);
-    }
-    do_test(res.status.signal_exited() && res.status.signal_code() == SIGINT);
-    iothread_drain_all();
-}
-
-static void test_cancellation() {
-    say(L"Testing Ctrl-C cancellation. If this hangs, that's a bug!");
-
-    // Enable fish's signal handling here.
-    signal_set_handlers(true);
-
-    // This tests that we can correctly ctrl-C out of certain loop constructs, and that nothing gets
-    // printed if we do.
-
-    // Here the command substitution is an infinite loop. echo never even gets its argument, so when
-    // we cancel we expect no output.
-    test_1_cancellation(L"echo (while true ; echo blah ; end)");
-
-    // Nasty infinite loop that doesn't actually execute anything.
-    test_1_cancellation(L"echo (while true ; end) (while true ; end) (while true ; end)");
-    test_1_cancellation(L"while true ; end");
-    test_1_cancellation(L"while true ; echo nothing > /dev/null; end");
-    test_1_cancellation(L"for i in (while true ; end) ; end");
-
-    signal_reset_handlers();
-
-    // Ensure that we don't think we should cancel.
-    reader_reset_interrupted();
-    signal_clear_cancel();
+    do_test(comps.at(0) == L"alpha");
+    do_test(comps.at(1) == L"beta gamma");
+    do_test(comps.at(2) == L"delta");
 }
 
 static void test_const_strlen() {
@@ -985,6 +952,7 @@ static void test_const_strcmp() {
     static_assert(const_strcmp("b", "aa") > 0, "const_strcmp failure");
 }
 
+// todo!("port this");
 static void test_is_sorted_by_name() {
     struct named_t {
         const wchar_t *name;
@@ -1012,6 +980,7 @@ static void test_is_sorted_by_name() {
     static_assert(!is_sorted_by_name(not_sorted), "is_sorted_by_name failure");
 }
 
+// todo!("later: already ported, delete this");
 void test_dir_iter() {
     dir_iter_t baditer(L"/definitely/not/a/valid/directory/for/sure");
     do_test(!baditer.valid());
@@ -1204,6 +1173,7 @@ static void test_wchar2utf8(const wchar_t *src, size_t slen, const unsigned char
     return test_wchar2utf8(src, slen, dst, dlen, flags, res, descr);
 }
 
+// todo!("delete this?");
 static void test_utf8() {
     say(L"Testing utf8");
     wchar_t w1[] = {0x54, 0x65, 0x73, 0x74};
@@ -1313,6 +1283,7 @@ static void test_utf8() {
 #endif
 }
 
+// todo!("port this");
 static void test_escape_sequences() {
     say(L"Testing escape_sequences");
     layout_cache_t lc;
@@ -1366,6 +1337,7 @@ class test_lru_t : public lru_cache_t<int> {
     }
 };
 
+// todo!("later: port this");
 static void test_lru() {
     say(L"Testing LRU cache");
 
@@ -1416,51 +1388,9 @@ static void test_lru() {
     do_test(cache.size() == 0);
 }
 
-/// An environment built around an std::map.
-struct test_environment_t : public environment_t {
-    std::map<wcstring, wcstring> vars;
+#if 0
 
-    maybe_t<env_var_t> get(const wcstring &key,
-                           env_mode_flags_t mode = ENV_DEFAULT) const override {
-        UNUSED(mode);
-        auto iter = vars.find(key);
-        if (iter != vars.end()) {
-            return env_var_t(iter->second, ENV_DEFAULT);
-        }
-        return none();
-    }
-
-    std::vector<wcstring> get_names(env_mode_flags_t flags) const override {
-        UNUSED(flags);
-        std::vector<wcstring> result;
-        for (const auto &kv : vars) {
-            result.push_back(kv.first);
-        }
-        return result;
-    }
-};
-
-/// A test environment that knows about PWD.
-struct pwd_environment_t : public test_environment_t {
-    maybe_t<env_var_t> get(const wcstring &key,
-                           env_mode_flags_t mode = ENV_DEFAULT) const override {
-        if (key == L"PWD") {
-            return env_var_t{wgetcwd(), 0};
-        }
-        return test_environment_t::get(key, mode);
-    }
-
-    std::vector<wcstring> get_names(env_mode_flags_t flags) const override {
-        auto res = test_environment_t::get_names(flags);
-        res.clear();
-        if (std::count(res.begin(), res.end(), L"PWD") == 0) {
-            res.emplace_back(L"PWD");
-        }
-        return res;
-    }
-};
-
-/// Perform parameter expansion and test if the output equals the zero-terminated parameter list
+/// Perform parameter expansion and test if the output equals the zero-terminated parameter list ///
 /// supplied.
 ///
 /// \param in the string to expand
@@ -1468,6 +1398,7 @@ struct pwd_environment_t : public test_environment_t {
 /// \param ... A zero-terminated parameter list of values to test.
 /// After the zero terminator comes one more arg, a string, which is the error
 /// message to print if the test fails.
+// todo!("port this")
 static bool expand_test(const wchar_t *in, expand_flags_t flags, ...) {
     completion_list_t output;
     va_list va;
@@ -1538,6 +1469,7 @@ static bool expand_test(const wchar_t *in, expand_flags_t flags, ...) {
 }
 
 /// Test globbing and other parameter expansion.
+// todo!("port this")
 static void test_expand() {
     say(L"Testing parameter expansion");
     const expand_flags_t noflags{};
@@ -1674,6 +1606,7 @@ static void test_expand() {
     popd();
 }
 
+// todo!("port this")
 static void test_expand_overflow() {
     say(L"Testing overflowing expansions");
     // Ensure that we have sane limits on number of expansions - see #7497.
@@ -1704,7 +1637,9 @@ static void test_expand_overflow() {
 
     parser->vars().pop();
 }
+#endif
 
+// todo!("port this")
 static void test_abbreviations() {
     say(L"Testing abbreviations");
     {
@@ -1802,6 +1737,7 @@ static void test_abbreviations() {
     }
 }
 
+// todo!("later: port this")
 static void test_pager_navigation() {
     say(L"Testing pager navigation");
 
@@ -1934,6 +1870,7 @@ struct pager_layout_testcase_t {
     }
 };
 
+// todo!("later: port this")
 static void test_pager_layout() {
     // These tests are woefully incomplete
     // They only test the truncation logic for a single completion
@@ -1986,6 +1923,7 @@ static void test_pager_layout() {
     }
 }
 
+// todo!("later: port this")
 enum word_motion_t { word_motion_left, word_motion_right };
 static void test_1_word_motion(word_motion_t motion, move_word_style_t style,
                                const wcstring &test) {
@@ -2043,6 +1981,7 @@ static void test_1_word_motion(word_motion_t motion, move_word_style_t style,
     }
 }
 
+// todo!("later: port this")
 /// Test word motion (forward-word, etc.). Carets represent cursor stops.
 static void test_word_motion() {
     say(L"Testing word motion");
@@ -2093,6 +2032,7 @@ static void test_word_motion() {
                        L"^a-b-c^\n\nd-e-f^ ");
 }
 
+// todo!("port this")
 /// Test is_potential_path.
 static void test_is_potential_path() {
     say(L"Testing is_potential_path");
@@ -2132,6 +2072,7 @@ static void test_is_potential_path() {
     do_test(is_potential_path(L"/usr", true, wds, ctx, PATH_REQUIRE_DIR));
 }
 
+// todo!("port this?")
 static void test_wcstod() {
     say(L"Testing fish_wcstod");
     auto tod_test = [](const wchar_t *a, const char *b) {
@@ -2150,6 +2091,7 @@ static void test_wcstod() {
     tod_test(L"nope", "nope");
 }
 
+// todo!("port this")
 static void test_dup2s() {
     using std::make_shared;
     io_chain_t chain;
@@ -2167,6 +2109,7 @@ static void test_dup2s() {
     do_test(act2.target == 3);
 }
 
+// todo!("port this")
 static void test_dup2s_fd_for_target_fd() {
     using std::make_shared;
     io_chain_t chain;
@@ -2190,6 +2133,7 @@ static void test_dup2s_fd_for_target_fd() {
     do_test(list.fd_for_target_fd(10) == -1);
 }
 
+// todo!("already ported, delete this")
 /// Testing colors.
 static void test_colors() {
     say(L"Testing colors");
@@ -2206,6 +2150,7 @@ static void test_colors() {
     do_test(rgb_color_t(L"mooganta").is_none());
 }
 
+// todo!("port this")
 static void test_complete() {
     say(L"Testing complete");
 
@@ -2486,6 +2431,7 @@ static void test_complete() {
     popd();
 }
 
+// todo!("later: port this")
 static void test_1_completion(wcstring line, const wcstring &completion, complete_flags_t flags,
                               bool append_only, wcstring expected, long source_line) {
     // str is given with a caret, which we use to represent the cursor position. Find it.
@@ -2508,6 +2454,7 @@ static void test_1_completion(wcstring line, const wcstring &completion, complet
     do_test(cursor_pos == out_cursor_pos);
 }
 
+// todo!("later: port this")
 static void test_completion_insertions() {
 #define TEST_1_COMPLETION(a, b, c, d, e) test_1_completion(a, b, c, d, e, __LINE__)
     say(L"Testing completion insertions");
@@ -2542,6 +2489,7 @@ static void test_completion_insertions() {
     TEST_1_COMPLETION(L": (:^ ''", L"", 0, false, L": (: ^''");
 }
 
+// todo!("port this")
 static void perform_one_autosuggestion_cd_test(const wcstring &command, const wcstring &expected,
                                                const environment_t &vars, long line) {
     completion_list_t comps =
@@ -2578,6 +2526,7 @@ static void perform_one_autosuggestion_cd_test(const wcstring &command, const wc
     }
 }
 
+// todo!("port this")
 static void perform_one_completion_cd_test(const wcstring &command, const wcstring &expected,
                                            const environment_t &vars, long line) {
     completion_list_t comps = complete(
@@ -2614,6 +2563,7 @@ static void perform_one_completion_cd_test(const wcstring &command, const wcstri
     }
 }
 
+// todo!("port this")
 // Testing test_autosuggest_suggest_special, in particular for properly handling quotes and
 // backslashes.
 static void test_autosuggest_suggest_special() {
@@ -2747,6 +2697,7 @@ static void test_autosuggest_suggest_special() {
     popd();
 }
 
+// todo!("port this")
 static void perform_one_autosuggestion_should_ignore_test(const wcstring &command, long line) {
     completion_list_t comps = complete(command, completion_request_options_t::autosuggest(),
                                        operation_context_t::empty());
@@ -2759,6 +2710,7 @@ static void perform_one_autosuggestion_should_ignore_test(const wcstring &comman
     }
 }
 
+// todo!("port this")
 static void test_autosuggestion_ignores() {
     say(L"Testing scenarios that should produce no autosuggestions");
     // Do not do file autosuggestions immediately after certain statement terminators - see #1631.
@@ -2768,6 +2720,7 @@ static void test_autosuggestion_ignores() {
     perform_one_autosuggestion_should_ignore_test(L"echo PIPE_TEST;", __LINE__);
 }
 
+// todo!("later: port this")
 static void test_autosuggestion_combining() {
     say(L"Testing autosuggestion combining");
     do_test(combine_command_and_autosuggestion(L"alpha", L"alphabeta") == L"alphabeta");
@@ -2783,6 +2736,7 @@ static void test_autosuggestion_combining() {
     do_test(combine_command_and_autosuggestion(L"alpha", L"ALPHA") == L"alpha");
 }
 
+// todo!("port this")
 static void test_history_matches(history_search_t &search, const std::vector<wcstring> &expected,
                                  unsigned from_line) {
     std::vector<wcstring> found;
@@ -2796,6 +2750,7 @@ static void test_history_matches(history_search_t &search, const std::vector<wcs
     }
 }
 
+// todo!("port this")
 static bool history_contains(history_t *history, const wcstring &txt) {
     bool result = false;
     size_t i;
@@ -2815,6 +2770,7 @@ static bool history_contains(const std::shared_ptr<history_t> &history, const wc
     return history_contains(history.get(), txt);
 }
 
+// todo!("later: port this")
 static void test_input() {
     say(L"Testing input");
     inputter_t input{parser_t::principal_parser()};
@@ -2844,6 +2800,7 @@ static void test_input() {
     }
 }
 
+// todo!("later: port this")
 static void test_undo() {
     say(L"Testing undo/redo setting and restoring text and cursor position.");
 
@@ -2901,6 +2858,7 @@ static void test_undo() {
 #define UVARS_PER_THREAD 8
 #define UVARS_TEST_PATH L"test/fish_uvars_test/varsfile.txt"
 
+// todo!("port this?")
 static int test_universal_helper(int x) {
     callback_data_list_t callbacks;
     env_universal_t uvars;
@@ -2924,6 +2882,7 @@ static int test_universal_helper(int x) {
     return 0;
 }
 
+// todo!("port this?")
 static void test_universal() {
     say(L"Testing universal variables");
     if (system("mkdir -p test/fish_uvars_test/")) err(L"mkdir failed");
@@ -2959,6 +2918,7 @@ static void test_universal() {
     system_assert("rm -Rf test/fish_uvars_test/");
 }
 
+// todo!("port this?")
 static void test_universal_output() {
     say(L"Testing universal variable output");
 
@@ -2984,6 +2944,7 @@ static void test_universal_output() {
     do_test(text == expected);
 }
 
+// todo!("port this")
 static void test_universal_parsing() {
     say(L"Testing universal variable parsing");
     const char *input =
@@ -3010,6 +2971,7 @@ static void test_universal_parsing() {
     do_test(vars == parsed_vars);
 }
 
+// todo!("port this")
 static void test_universal_parsing_legacy() {
     say(L"Testing universal variable legacy parsing");
     const char *input =
@@ -3030,6 +2992,7 @@ static bool callback_data_less_than(const callback_data_t &a, const callback_dat
     return a.key < b.key;
 }
 
+// todo!("port this")
 static void test_universal_callbacks() {
     say(L"Testing universal callbacks");
     if (system("mkdir -p test/fish_uvars_test/")) err(L"mkdir failed");
@@ -3082,6 +3045,7 @@ static void test_universal_callbacks() {
     system_assert("rm -Rf test/fish_uvars_test/");
 }
 
+// todo!("port this")
 static void test_universal_formats() {
     say(L"Testing universal format detection");
     const struct {
@@ -3103,6 +3067,7 @@ static void test_universal_formats() {
     }
 }
 
+// todo!("port this")
 static void test_universal_ok_to_save() {
     // Ensure we don't try to save after reading from a newer fish.
     say(L"Testing universal Ok to save");
@@ -3132,6 +3097,7 @@ static void test_universal_ok_to_save() {
     system_assert("rm -Rf test/fish_uvars_test/");
 }
 
+// todo!("later: port this")
 bool poll_notifier(const std::unique_ptr<universal_notifier_t> &note) {
     if (note->poll()) return true;
 
@@ -3143,6 +3109,7 @@ bool poll_notifier(const std::unique_ptr<universal_notifier_t> &note) {
     return result;
 }
 
+// todo!("later: port this")
 static void test_notifiers_with_strategy(universal_notifier_t::notifier_strategy_t strategy) {
     say(L"Testing universal notifiers with strategy %d", (int)strategy);
     constexpr size_t notifier_count = 16;
@@ -3214,6 +3181,7 @@ static void test_notifiers_with_strategy(universal_notifier_t::notifier_strategy
     }
 }
 
+// todo!("later: port this")
 static void test_universal_notifiers() {
     if (system("mkdir -p test/fish_uvars_test/ && touch test/fish_uvars_test/varsfile.txt")) {
         err(L"mkdir failed");
@@ -3223,6 +3191,7 @@ static void test_universal_notifiers() {
     test_notifiers_with_strategy(strategy);
 }
 
+// todo!("port this")
 class history_tests_t {
    public:
     static void test_history();
@@ -3244,6 +3213,7 @@ static wcstring random_string() {
     return result;
 }
 
+// todo!("port this")
 void history_tests_t::test_history() {
     history_search_t searcher;
     say(L"Testing history");
@@ -3376,6 +3346,7 @@ static std::vector<wcstring> generate_history_lines(size_t item_count, size_t id
     return result;
 }
 
+// todo!("port this")
 void history_tests_t::test_history_races_pound_on_history(size_t item_count, size_t idx) {
     // Called in child thread to modify history.
     history_t hist(L"race_test");
@@ -3386,6 +3357,7 @@ void history_tests_t::test_history_races_pound_on_history(size_t item_count, siz
     }
 }
 
+// todo!("port this")
 void history_tests_t::test_history_races() {
     // This always fails under WSL
     if (is_windows_subsystem_for_linux()) {
@@ -3486,6 +3458,7 @@ void history_tests_t::test_history_races() {
     hist.clear();
 }
 
+// todo!("port this")
 void history_tests_t::test_history_merge() {
     // In a single fish process, only one history is allowed to exist with the given name But it's
     // common to have multiple history instances with the same name active in different processes,
@@ -3584,6 +3557,7 @@ void history_tests_t::test_history_merge() {
     everything->clear();
 }
 
+// todo!("port this")
 void history_tests_t::test_history_path_detection() {
     // Regression test for #7582.
     say(L"Testing history path detection");
@@ -3712,6 +3686,7 @@ static bool history_equals(const shared_ptr<history_t> &hist, const wchar_t *con
     return true;
 }
 
+// todo!("port this")
 void history_tests_t::test_history_formats() {
     const wchar_t *name;
 
@@ -3791,6 +3766,7 @@ void history_tests_t::test_history_formats() {
 }
 
 #if 0
+// todo!("port this?")
 // This test isn't run at this time. It was added by commit b9283d48 but not actually enabled.
 void history_tests_t::test_history_speed(void)
 {
@@ -3819,6 +3795,7 @@ void history_tests_t::test_history_speed(void)
 }
 #endif
 
+// todo!("later: port this")
 static void test_new_parser_correctness() {
     say(L"Testing parser correctness");
     const struct parser_test_t {
@@ -3875,6 +3852,7 @@ static inline bool string_for_permutation(const wcstring *fuzzes, size_t fuzz_co
     return remaining_permutation == 0;
 }
 
+// todo!("later: port this")
 static void test_new_parser_fuzzing() {
     say(L"Fuzzing parser");
     const wcstring fuzzes[] = {
@@ -3908,6 +3886,7 @@ static void test_new_parser_fuzzing() {
     if (log_it) say(L"All fuzzed in %.2f seconds!", end - start);
 }
 
+// todo!("later: port this")
 // Parse a statement, returning the command, args (joined by spaces), and the decoration. Returns
 // true if successful.
 static bool test_1_parse_ll2(const wcstring &src, wcstring *out_cmd, wcstring *out_joined_args,
@@ -3978,6 +3957,7 @@ static void check_function_help(const wchar_t *src) {
     }
 }
 
+// todo!("later: port this")
 // Test the LL2 (two token lookahead) nature of the parser by exercising the special builtin and
 // command handling. In particular, 'command foo' should be a decorated statement 'foo' but 'command
 // -help' should be an undecorated statement 'command' with argument '--help', and NOT attempt to
@@ -4026,6 +4006,7 @@ static void test_new_parser_ll2() {
     check_function_help<ast::type_t::function_header>(L"function foo; end");
 }
 
+// todo!("later: port this")
 static void test_new_parser_ad_hoc() {
     using namespace ast;
     // Very ad-hoc tests for issues encountered.
@@ -4080,6 +4061,7 @@ static void test_new_parser_ad_hoc() {
             errors->at(0)->code() == parse_error_code_t::tokenizer_unterminated_quote);
 }
 
+// todo!("later: port this")
 static void test_new_parser_errors() {
     say(L"Testing new parser error reporting");
     const struct {
@@ -4199,6 +4181,7 @@ static bool string_matches_format(const wcstring &string, const wchar_t *format)
     return result;
 }
 
+// todo!("later: port this")
 static void test_error_messages() {
     say(L"Testing error messages");
     const struct error_test_t {
@@ -4230,6 +4213,7 @@ static void test_error_messages() {
     }
 }
 
+// todo!("port this")
 static void test_highlighting() {
     say(L"Testing syntax highlighting");
     if (!pushd("test/fish_highlight_test/")) return;
@@ -4681,6 +4665,7 @@ static void test_highlighting() {
     vars.remove(L"VARIABLE_IN_COMMAND2", ENV_DEFAULT);
 }
 
+// todo!("later: port this")
 static void test_wwrite_to_fd() {
     say(L"Testing wwrite_to_fd");
     char t[] = "/tmp/fish_test_wwrite.XXXXXX";
@@ -4749,6 +4734,7 @@ long return_timezone_hour(time_t tstamp, const wchar_t *timezone) {
     return strtol(ltime_str, &str_ptr, 10);
 }
 
+// todo!("later: port this")
 /// Verify that setting special env vars have the expected effect on the current shell process.
 static void test_timezone_env_vars() {
     // Confirm changing the timezone affects fish's idea of the local time.
@@ -4762,6 +4748,7 @@ static void test_timezone_env_vars() {
     }
 }
 
+// todo!("later: port this")
 /// Verify that setting special env vars have the expected effect on the current shell process.
 static void test_env_vars() {
     test_timezone_env_vars();
@@ -4776,6 +4763,7 @@ static void test_env_vars() {
     do_test(v1 != v4 && !(v1 == v4));
 }
 
+// todo!("later: port this")
 static void test_env_snapshot() {
     if (system("mkdir -p test/fish_env_snapshot_test/")) err(L"mkdir failed");
     bool pushed = pushd("test/fish_env_snapshot_test");
@@ -4808,6 +4796,7 @@ static void test_env_snapshot() {
     popd();
 }
 
+// todo!("later: port this")
 static void test_illegal_command_exit_code() {
     say(L"Testing illegal command exit code");
 
@@ -4834,7 +4823,7 @@ static void test_illegal_command_exit_code() {
     const parser_t &parser = parser_t::principal_parser();
 
     for (const auto &test : tests) {
-        parser.eval(test.txt, empty_ios);
+        parser->deref().eval(test.txt, empty_ios);
 
         int exit_status = parser.get_last_status();
         if (exit_status != test.result) {
@@ -4846,6 +4835,7 @@ static void test_illegal_command_exit_code() {
     popd();
 }
 
+// todo!("no need to port, delete this")
 void test_maybe() {
     say(L"Testing maybe_t");
     // maybe_t<T> bool conversion is only enabled for non-bool-convertible T types
@@ -4909,6 +4899,7 @@ void test_maybe() {
     do_test(c2.value_or("derp") == "derp");
 }
 
+// todo!("later: delete this")
 void test_layout_cache() {
     layout_cache_t seqs;
 
@@ -4955,6 +4946,7 @@ void test_layout_cache() {
     do_test(seqs.find_prompt_layout(L"whatever", huge)->layout.max_line_width == 100);
 }
 
+// todo!("later: port this")
 void test_prompt_truncation() {
     layout_cache_t cache;
     wcstring trunc;
@@ -5030,6 +5022,7 @@ void test_prompt_truncation() {
     do_test(trunc == ellipsis);
 }
 
+// todo!("already ported, delete this")
 void test_normalize_path() {
     say(L"Testing path normalization");
     do_test(normalize_path(L"") == L".");
@@ -5070,6 +5063,7 @@ void test_normalize_path() {
     do_test(path_normalize_for_cd(L"/abc/def/", L"../ghi/..") == L"/abc/ghi/..");
 }
 
+// todo!("already ported, delete this")
 void test_dirname_basename() {
     say(L"Testing wdirname and wbasename");
     const struct testcase_t {
@@ -5111,6 +5105,7 @@ void test_dirname_basename() {
     do_test(wbasename(longpath) == L"overlong");
 }
 
+// todo!("later: port this")
 static void test_topic_monitor() {
     say(L"Testing topic monitor");
     auto monitor_box = new_topic_monitor();
@@ -5136,6 +5131,7 @@ static void test_topic_monitor() {
     do_test(gens.sigchld == 2);
 }
 
+// todo!("later: port this")
 static void test_topic_monitor_torture() {
     say(L"Torture-testing topic monitor");
     auto monitor_box = new_topic_monitor();
@@ -5179,6 +5175,7 @@ static void test_topic_monitor_torture() {
     for (auto &t : threads) t.join();
 }
 
+// todo!("later: port this")
 static void test_pipes() {
     say(L"Testing pipes");
     // Here we just test that each pipe has CLOEXEC set and is in the high range.
@@ -5199,6 +5196,7 @@ static void test_pipes() {
     }
 }
 
+// todo!("later: port this")
 static void test_fd_event_signaller() {
     say(L"Testing fd event signaller");
     fd_event_signaller_t sema;
@@ -5224,6 +5222,7 @@ static void test_fd_event_signaller() {
     do_test(!sema.try_consume());
 }
 
+// todo!("later: port this")
 void test_wgetopt() {
     // Regression test for a crash.
     const wchar_t *const short_options = L"-a";
@@ -5321,7 +5320,6 @@ static const test_t s_tests[]{
     {TEST_GROUP("debounce"), test_debounce},
     {TEST_GROUP("debounce"), test_debounce_timeout},
     {TEST_GROUP("parser"), test_parser},
-    {TEST_GROUP("cancellation"), test_cancellation},
     {TEST_GROUP("utf8"), test_utf8},
     {TEST_GROUP("escape_sequences"), test_escape_sequences},
     {TEST_GROUP("lru"), test_lru},
@@ -5449,5 +5447,3 @@ int main(int argc, char **argv) {
         return 1;
     }
 }
-
-#endif
