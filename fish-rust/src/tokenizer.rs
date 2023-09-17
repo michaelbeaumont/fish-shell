@@ -23,6 +23,7 @@ mod tokenizer_ffi {
     }
 
     /// Token types. XXX Why this isn't ParseTokenType, I'm not really sure.
+    #[derive(Debug)]
     enum TokenType {
         /// Error reading token
         error,
@@ -44,6 +45,7 @@ mod tokenizer_ffi {
         comment,
     }
 
+    #[derive(Debug, Eq, PartialEq)]
     enum TokenizerError {
         none,
         unterminated_quote,
