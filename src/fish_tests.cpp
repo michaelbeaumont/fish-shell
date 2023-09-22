@@ -5243,11 +5243,10 @@ void test_prompt_truncation() {
                                           L"0123456789ABCDEF",  //
                                           L"012345",            //
                                           L"0123456789abcdef",  //
-                                          L"xyz"                //
                                       }),
                                       &trunc, 8);
-    do_test(format_layout() == L"[8,15,24],8,3");
-    do_test(trunc == join({ellipsis + L"9ABCDEF", L"012345", ellipsis + L"9abcdef", L"xyz"}));
+    do_test(format_layout() == L"[16,23],16,8");
+    do_test(trunc == join({L"0123456789ABCDEF", L"012345", ellipsis + L"9abcdef"}));
 
     // Escape sequences are not truncated.
     layout =

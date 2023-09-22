@@ -400,7 +400,7 @@ prompt_layout_t layout_cache_t::calc_prompt_layout(const wcstring &prompt_str,
     while (run_start < prompt_len) {
         size_t run_end;
         size_t line_width = measure_run_from(prompt, run_start, &run_end, *this);
-        if (line_width <= max_line_width) {
+        if (line_width <= max_line_width || prompt[run_end]) {
             // No truncation needed on this line.
             trunc_prompt.append(&prompt[run_start], run_end - run_start);
         } else {
